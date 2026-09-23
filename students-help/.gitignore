@@ -1,0 +1,16 @@
+node_modules
+dist
+build
+coverage
+.env
+.env.local
+*.db
+*.db-journal
+.DS_Store
+.mailbox
+frontend/dist
+backend/dist
+backend/prisma/*.db
+backend/prisma/*.db-journal
+.vscode
+*.log

@@ -1,0 +1,300 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  HELP_SEEKER
+  ADMIN
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  VERIFIED
+}
+
+enum PreferredPaymentMethod {
+  CARD
+  PAYPAL
+  BANK_TRANSFER
+}
+
+model User {
+  id                      String                    @id @default(cuid())
+  email                   String                    @unique
+  passwordHash            String
+  role                    UserRole
+  verificationStatus      VerificationStatus        @default(UNVERIFIED)
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  emailVerificationTokens EmailVerificationToken[]
+  helpSeekerProfile       HelpSeekerProfile?
+  studentProfile          StudentProfile?
+  sessions                Session[]
+}
+
+model HelpSeekerProfile {
+  id                      String                   @id @default(cuid())
+  userId                  String                   @unique
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName                String
+  phone                   String
+  preferredPaymentMethod  PreferredPaymentMethod
+  addresses               Address[]
+  tasks                   Task[]
+  bookings                Booking[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+}
+
+model Address {
+  id                  String            @id @default(cuid())
+  helpSeekerProfileId String
+  helpSeekerProfile   HelpSeekerProfile @relation(fields: [helpSeekerProfileId], references: [id], onDelete: Cascade)
+  addressLine         String
+  isDefault           Boolean           @default(false)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([helpSeekerProfileId])
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenDigest String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenDigest String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([tokenDigest])
+  @@index([userId])
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+model StudentProfile {
+  id                    String                   @id @default(cuid())
+  userId                String                   @unique
+  user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timezone              String?
+  skills                StudentSkill[]
+  recurringAvailability RecurringAvailability[]
+  unavailablePeriods    UnavailablePeriod[]
+  bookings              Booking[]
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+}
+
+model Skill {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  slug      String         @unique
+  category  String
+  isActive  Boolean        @default(true)
+  students  StudentSkill[]
+  tasks     TaskSkill[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model StudentSkill {
+  id                     String           @id @default(cuid())
+  studentProfileId       String
+  studentProfile         StudentProfile   @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  skillId                String
+  skill                  Skill            @relation(fields: [skillId], references: [id], onDelete: Restrict)
+  experienceLevel        ExperienceLevel
+  description            String?
+  certificationReference String?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  @@unique([studentProfileId, skillId])
+  @@index([studentProfileId])
+  @@index([skillId])
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model RecurringAvailability {
+  id               String         @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  dayOfWeek        DayOfWeek
+  startTime        String
+  endTime          String
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([studentProfileId, dayOfWeek])
+}
+
+model UnavailablePeriod {
+  id               String         @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  startDateTime    DateTime
+  endDateTime      DateTime
+  reason           String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([studentProfileId, startDateTime, endDateTime])
+}
+
+enum TaskStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Task {
+  id                        String            @id @default(cuid())
+  helpSeekerProfileId       String
+  helpSeekerProfile         HelpSeekerProfile @relation(fields: [helpSeekerProfileId], references: [id], onDelete: Cascade)
+  title                     String
+  description               String
+  locationLine              String
+  timezone                  String
+  preferredStartAt          DateTime
+  estimatedDurationMinutes  Int
+  specialInstructions       String?
+  status                    TaskStatus        @default(PUBLISHED)
+  skills                    TaskSkill[]
+  bookings                  Booking[]
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+
+  @@index([helpSeekerProfileId])
+  @@index([preferredStartAt])
+  @@index([status])
+}
+
+model TaskSkill {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  skillId   String
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, skillId])
+  @@index([taskId])
+  @@index([skillId])
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  CONFIRMED
+  IN_PROGRESS
+  AWAITING_SIGNOFF
+  COMPLETED
+}
+
+model Booking {
+  id                  String              @id @default(cuid())
+  taskId              String
+  task                Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentProfileId    String
+  studentProfile      StudentProfile      @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  helpSeekerProfileId String
+  helpSeekerProfile   HelpSeekerProfile   @relation(fields: [helpSeekerProfileId], references: [id], onDelete: Cascade)
+  status              BookingStatus       @default(PENDING)
+  rejectionReason     String?
+  rejectedAt          DateTime?
+  startedAt             DateTime?
+  submittedForSignoffAt DateTime?
+  completedAt           DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  statusHistory       BookingStatusHistory[]
+  payments            Payment[]
+
+  @@index([taskId])
+  @@index([studentProfileId])
+  @@index([helpSeekerProfileId])
+  @@index([status])
+  @@index([taskId, studentProfileId, status])
+}
+
+model BookingStatusHistory {
+  id              String         @id @default(cuid())
+  bookingId       String
+  booking         Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fromStatus      BookingStatus?
+  toStatus        BookingStatus
+  changedByUserId String
+  createdAt       DateTime       @default(now())
+
+  @@index([bookingId])
+}
+
+enum PaymentProvider {
+  MOCK
+  STRIPE
+}
+
+enum PaymentStatus {
+  AUTHORIZATION_PENDING
+  REQUIRES_PAYMENT_METHOD
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  CANCELLED
+}
+
+model Payment {
+  id                 String          @id @default(cuid())
+  bookingId          String
+  booking            Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider           PaymentProvider
+  providerPaymentId  String?         @unique
+  idempotencyKey     String          @unique
+  amountMinor        Int
+  platformFeeMinor   Int
+  currency           String
+  status             PaymentStatus
+  failureCode        String?
+  authorizedAt       DateTime?
+  capturedAt         DateTime?
+  failedAt           DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([bookingId])
+  @@index([status])
+}

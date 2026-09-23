@@ -1,0 +1,2 @@
+export const REJECTION_REASON_MIN_LENGTH = 8;
+export const REJECTION_REASON_MAX_LENGTH = 280;
